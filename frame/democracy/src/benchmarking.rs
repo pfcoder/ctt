@@ -27,11 +27,29 @@ use frame_support::traits::{Currency, Get};
 
 use crate::Module as Democracy;
 
+const SEED: u32 = 0;
 const MAX_PROPOSALS: u32 = 100;
+
+fn add_proposals<T: Trait>(number: u32) -> Result<(), &'static str> {
+	for p in 0 .. number {
+		let other: T::AccountId = account("other", p, SEED);
+		let _ = T::Currency::make_free_balance_be(&other, BalanceOf::<T>::max_value());
+		let value = T::MinimumDeposit::get();
+
+		let mut proposal_hash: T::Hash = Default::default();
+		#[cfg(feature = "test")] // FIX once benchmark feature is merged.
+		{
+			proposal_hash = H256::random();
+		}
+
+		Democracy::<T>::propose(RawOrigin::Signed(other).into(), proposal_hash, value.into())?;
+	}
+	Ok(())
+}
 
 benchmarks! {
 	_ {
-		let p in 0 .. MAX_PROPOSALS => ();
+		let p in 0 .. MAX_PROPOSALS => add_proposals::<T>(p)?;
 	}
 
 	propose {
@@ -39,6 +57,7 @@ benchmarks! {
 
 		let caller: T::AccountId = account("caller", 0, 0);
 		let caller_lookup: <T::Lookup as StaticLookup>::Source = T::Lookup::unlookup(caller.clone());
+
 		let mut proposal_hash: T::Hash = Default::default();
 		#[cfg(feature = "test")]
 		{
@@ -46,7 +65,7 @@ benchmarks! {
 		}
 
 		T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
-		let value = 1;
+		let value = T::MinimumDeposit::get();
 
 	}: _(RawOrigin::Signed(caller), proposal_hash, value.into())
 }
