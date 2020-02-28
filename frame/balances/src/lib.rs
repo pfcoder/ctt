@@ -450,7 +450,7 @@ decl_module! {
 		/// - Contains a limited number of reads and writes.
 		/// # </weight>
 		#[weight = SimpleDispatchInfo::FixedOperational(50_000)]
-		fn set_balance(
+		pub fn set_balance(
 			origin,
 			who: <T::Lookup as StaticLookup>::Source,
 			#[compact] new_free: T::Balance,

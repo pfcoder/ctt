@@ -35,7 +35,9 @@ use frame_support::{
 };
 use frame_system::{self as system, ensure_signed, ensure_root};
 
+pub mod benchmarking;
 mod vote_threshold;
+
 pub use vote_threshold::{Approved, VoteThreshold};
 
 const DEMOCRACY_ID: LockIdentifier = *b"democrac";
