@@ -498,6 +498,9 @@ decl_module! {
 			T::Currency::reserve(&who, value)?;
 
 			let index = Self::public_prop_count();
+			#[cfg(feature = "std")]
+			println!("add proposed with index {:?}", index);
+
 			PublicPropCount::put(index + 1);
 			<DepositOf<T>>::insert(index, (value, &[&who][..]));
 
@@ -700,6 +703,8 @@ decl_module! {
 				None => Err(Error::<T>::NotOpen),
 				Some(ProxyState::Active(_)) => Err(Error::<T>::AlreadyProxy),
 				Some(ProxyState::Open(x)) if &x == &who => {
+					#[cfg(feature = "std")]
+					println!("proxy open mutated to active");
 					*a = Some(ProxyState::Active(who));
 					Ok(())
 				}
