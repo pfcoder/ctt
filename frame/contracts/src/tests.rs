@@ -2195,7 +2195,7 @@ const CODE_SELF_DESTRUCT: &str = r#"
 "#;
 
 #[test]
-fn self_destruct_by_draining_balance() {
+fn self_destruct_by_draining_balance_traps() {
 	let (wasm, code_hash) = compile_module::<Test>(CODE_SELF_DESTRUCT).unwrap();
 	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
 		Balances::deposit_creating(&ALICE, 1_000_000);
@@ -2216,17 +2216,18 @@ fn self_destruct_by_draining_balance() {
 			Some(ContractInfo::Alive(_))
 		);
 
-		// Call BOB with no input data, forcing it to self-destruct.
-		assert_ok!(Contracts::call(
-			Origin::signed(ALICE),
-			BOB,
-			0,
-			100_000,
-			vec![],
-		));
-
-		// Check that BOB is now dead.
-		assert!(ContractInfoOf::<Test>::get(BOB).is_none());
+		// Call BOB with no input data, forcing it to run until out-of-balance
+		// and eventually trapping because below existential deposit.
+		assert_err!(
+			Contracts::call(
+				Origin::signed(ALICE),
+				BOB,
+				0,
+				100_000,
+				vec![],
+			),
+			"contract trapped during execution"
+		);
 	});
 }
 
@@ -2428,6 +2429,7 @@ const CODE_DESTROY_AND_TRANSFER: &str = r#"
 // This tests that one contract cannot prevent another from self-destructing by sending it
 // additional funds after it has been drained.
 #[test]
+#[ignore] // ignored until ext_terminate comes along
 fn destroy_contract_and_transfer_funds() {
 	let (callee_wasm, callee_code_hash) = compile_module::<Test>(CODE_SELF_DESTRUCT).unwrap();
 	let (caller_wasm, caller_code_hash) = compile_module::<Test>(CODE_DESTROY_AND_TRANSFER).unwrap();
@@ -2532,8 +2534,8 @@ fn cannot_self_destruct_in_constructor() {
 		Balances::deposit_creating(&ALICE, 1_000_000);
 		assert_ok!(Contracts::put_code(Origin::signed(ALICE), 100_000, wasm));
 
-		// Fail to instantiate the BOB contract since its final balance is below existential
-		// deposit.
+		// Fail to instantiate the BOB because the call that is issued in the deploy
+		// function exhausts all balances which puts it below the existential deposit.
 		assert_err!(
 			Contracts::instantiate(
 				Origin::signed(ALICE),
@@ -2542,7 +2544,7 @@ fn cannot_self_destruct_in_constructor() {
 				code_hash.into(),
 				vec![],
 			),
-			"insufficient remaining balance"
+			"contract trapped during execution"
 		);
 	});
 }

@@ -403,20 +403,6 @@ where
 							gas_meter,
 						)?;
 
-					// Destroy contract if insufficient remaining balance.
-					if nested.overlay.get_balance(&dest) < nested.config.existential_deposit {
-						let parent = nested.parent
-							.expect("a nested execution context must have a parent; qed");
-						if parent.is_live(&dest) {
-							return Err(ExecError {
-								reason: "contract cannot be destroyed during recursive execution".into(),
-								buffer: output.data,
-							});
-						}
-
-						nested.overlay.destroy_contract(&dest);
-					}
-
 					Ok(output)
 				}
 				None => Ok(ExecReturnValue { status: STATUS_SUCCESS, data: Vec::new() }),
@@ -581,6 +567,7 @@ impl<T: Trait> Token<T> for TransferFeeToken<BalanceOf<T>> {
 enum TransferCause {
 	Call,
 	Instantiate,
+	Terminate,
 }
 
 /// Transfer some funds from `transactor` to `dest`.
@@ -617,7 +604,7 @@ fn transfer<'a, T: Trait, V: Vm<T>, L: Loader<T>>(
 			Instantiate => ContractInstantiate,
 
 			// Otherwise the fee is to transfer to an account.
-			Call => TransferFeeKind::Transfer,
+			Call | Terminate => TransferFeeKind::Transfer,
 		};
 		TransferFeeToken {
 			kind,
@@ -639,11 +626,19 @@ fn transfer<'a, T: Trait, V: Vm<T>, L: Loader<T>>(
 	if to_balance.is_zero() && value < ctx.config.existential_deposit {
 		Err("value too low to create account")?
 	}
+
+	// Only ext_terminate is allowed to bring the sender below the existential deposit
+	let required_balance = match cause {
+		Terminate => 0.into(),
+		_ => ctx.config.existential_deposit
+	};
+
 	T::Currency::ensure_can_withdraw(
 		transactor,
 		value,
 		WithdrawReason::Transfer.into(),
-		new_from_balance,
+		new_from_balance.checked_sub(&required_balance)
+			.ok_or("brings sender below existential deposit")?,
 	)?;
 
 	let new_to_balance = match to_balance.checked_add(&value) {
@@ -1287,7 +1282,7 @@ mod tests {
 			let cfg = Config::preload();
 			let mut ctx = ExecutionContext::top_level(ALICE, &cfg, &vm, &loader);
 
-			ctx.overlay.set_balance(&ALICE, 1);
+			ctx.overlay.set_balance(&ALICE, 100);
 
 			let result = ctx.instantiate(
 				1,
@@ -1557,6 +1552,7 @@ mod tests {
 			let cfg = Config::preload();
 			let mut ctx = ExecutionContext::top_level(ALICE, &cfg, &vm, &loader);
 			ctx.overlay.set_balance(&ALICE, 1000);
+			ctx.overlay.set_balance(&BOB, 100);
 			ctx.overlay.instantiate_contract(&BOB, instantiator_ch).unwrap();
 
 			assert_matches!(
@@ -1616,6 +1612,7 @@ mod tests {
 			let cfg = Config::preload();
 			let mut ctx = ExecutionContext::top_level(ALICE, &cfg, &vm, &loader);
 			ctx.overlay.set_balance(&ALICE, 1000);
+			ctx.overlay.set_balance(&BOB, 100);
 			ctx.overlay.instantiate_contract(&BOB, instantiator_ch).unwrap();
 
 			assert_matches!(
@@ -1649,7 +1646,7 @@ mod tests {
 			let cfg = Config::preload();
 			let mut ctx = ExecutionContext::top_level(ALICE, &cfg, &vm, &loader);
 
-			ctx.overlay.set_balance(&ALICE, 1);
+			ctx.overlay.set_balance(&ALICE, 100);
 
 			let result = ctx.instantiate(
 				1,
