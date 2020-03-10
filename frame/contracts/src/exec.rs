@@ -496,9 +496,40 @@ where
 		Ok((dest, output))
 	}
 
-	fn new_call_context<'b>(&'b mut self, caller: T::AccountId, value: BalanceOf<T>)
-		-> CallContext<'b, 'a, T, V, L>
-	{
+	pub fn terminate(
+		&mut self,
+		beneficiary: T::AccountId,
+		gas_meter: &mut GasMeter<T>,
+		reason: Vec<u8>,
+	) -> ExecResult {
+		let self_id = self.self_account.clone();
+
+		self.with_nested_context(beneficiary.clone(), None, move |nested| {
+			let value = nested.overlay.get_balance(&self_id);
+			try_or_exec_error!(
+				transfer(
+					gas_meter,
+					TransferCause::Call,
+					&self_id,
+					&beneficiary,
+					value,
+					nested,
+				),
+				reason
+			);
+			nested.overlay.destroy_contract(&self_id);
+			Ok(ExecReturnValue {
+				status: STATUS_SUCCESS.into(),
+				data: reason,
+			})
+		})
+	}
+
+	fn new_call_context<'b>(
+		&'b mut self,
+		caller: T::AccountId,
+		value: BalanceOf<T>,
+	) -> CallContext<'b, 'a, T, V, L> {
 		let timestamp = self.timestamp.clone();
 		let block_number = self.block_number.clone();
 		CallContext {
