@@ -566,6 +566,7 @@ impl pallet_recovery::Trait for Runtime {
 	type FriendDepositFactor = FriendDepositFactor;
 	type MaxFriends = MaxFriends;
 	type RecoveryDeposit = RecoveryDeposit;
+	type Dispatcher = ();
 }
 
 parameter_types! {
