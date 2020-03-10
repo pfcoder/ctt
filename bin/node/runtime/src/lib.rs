@@ -449,6 +449,7 @@ impl pallet_contracts::Trait for Runtime {
 impl pallet_sudo::Trait for Runtime {
 	type Event = Event;
 	type Call = Call;
+	type Dispatcher = ();
 }
 
 /// A runtime transaction submitter.
