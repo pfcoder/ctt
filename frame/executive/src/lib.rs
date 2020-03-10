@@ -78,7 +78,7 @@ use sp_std::{prelude::*, marker::PhantomData};
 use frame_support::weights::{GetDispatchInfo, WeighBlock, DispatchInfo};
 use sp_runtime::{
 	generic::Digest,
-	ApplyExtrinsicResult,
+	ApplyExtrinsicResult, ValidateUnsigned,
 	traits::{
 		self, Header, Zero, One, Checkable, Applyable, CheckEqual, OnFinalize, OnInitialize,
 		NumberFor, Block as BlockT, OffchainWorker, Dispatchable, Saturating,
@@ -86,7 +86,6 @@ use sp_runtime::{
 	transaction_validity::TransactionValidity,
 };
 use sp_runtime::generic::CheckSignature;
-use sp_runtime::traits::{self, ValidateUnsigned};
 use codec::{Codec, Encode};
 use frame_system::{extrinsics_root, DigestOf};
 
