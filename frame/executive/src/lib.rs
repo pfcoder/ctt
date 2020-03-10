@@ -86,7 +86,7 @@ use sp_runtime::{
 	transaction_validity::TransactionValidity,
 };
 use sp_runtime::generic::CheckSignature;
-use sp_runtime::traits::ValidateUnsigned;
+use sp_runtime::traits::{self, ValidateUnsigned};
 use codec::{Codec, Encode};
 use frame_system::{extrinsics_root, DigestOf};
 
@@ -120,7 +120,7 @@ impl<
 			+ OnFinalize<System::BlockNumber>
 			+ OffchainWorker<System::BlockNumber>
 			+ WeighBlock<System::BlockNumber>,
-		Dispatcher: sp_runtime::traits::Dispatcher<CallOf<Block::Extrinsic, Context>>,
+		Dispatcher: traits::Dispatcher<CallOf<Block::Extrinsic, Context>>,
 	> ExecuteBlock<Block>
 	for Executive<System, Block, Context, UnsignedValidator, AllModules, Dispatcher>
 where
@@ -144,7 +144,7 @@ impl<
 			+ OnFinalize<System::BlockNumber>
 			+ OffchainWorker<System::BlockNumber>
 			+ WeighBlock<System::BlockNumber>,
-		Dispatcher: sp_runtime::traits::Dispatcher<CallOf<Block::Extrinsic, Context>>,
+		Dispatcher: traits::Dispatcher<CallOf<Block::Extrinsic, Context>>,
 	> Executive<System, Block, Context, UnsignedValidator, AllModules, Dispatcher>
 where
 	Block::Extrinsic: Checkable<Context> + Codec,
