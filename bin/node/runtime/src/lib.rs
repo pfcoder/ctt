@@ -150,6 +150,7 @@ impl pallet_utility::Trait for Runtime {
 	type MultisigDepositBase = MultisigDepositBase;
 	type MultisigDepositFactor = MultisigDepositFactor;
 	type MaxSignatories = MaxSignatories;
+	type Dispatcher = ();
 }
 
 parameter_types! {
