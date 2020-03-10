@@ -329,6 +329,7 @@ impl pallet_democracy::Trait for Runtime {
 	type CooloffPeriod = CooloffPeriod;
 	type PreimageByteDeposit = PreimageByteDeposit;
 	type Slash = Treasury;
+	type Dispatcher = ();
 }
 
 type CouncilCollective = pallet_collective::Instance1;
