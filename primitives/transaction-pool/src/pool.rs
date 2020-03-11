@@ -29,7 +29,7 @@ use futures::{
 use serde::{Deserialize, Serialize};
 use sp_runtime::{
 	generic::BlockId,
-	traits::{Block as BlockT, Member},
+	traits::{Block as BlockT, Member, NumberFor},
 	transaction_validity::{
 		TransactionLongevity, TransactionPriority, TransactionTag,
 	},
@@ -211,7 +211,7 @@ pub trait TransactionPool: Send + Sync {
 
 	// *** Block production / Networking
 	/// Get an iterator for ready transactions ordered by priority
-	fn ready(&self) -> Box<dyn Iterator<Item=Arc<Self::InPoolTransaction>>>;
+	fn ready(&self, at: Option<NumberFor<Self::Block>>) -> Pin<Box<dyn Future<Output=Box<dyn Iterator<Item=Arc<Self::InPoolTransaction>> + Send>> + Send>>;
 
 	// *** Block production
 	/// Remove transactions identified by given hashes (and dependent transactions) from the pool.
