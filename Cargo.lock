@@ -1019,7 +1019,7 @@ version = "2.0.0-alpha.3"
 dependencies = [
  "ctt-runtime",
  "futures 0.3.4",
- "log 0.4.8",
+ "log",
  "sc-basic-authorship",
  "sc-cli",
  "sc-client",
@@ -1044,7 +1044,7 @@ dependencies = [
 
 [[package]]
 name = "ctt-pallet-kp"
-version = "2.0.0-alpha.3"
+version = "2.0.0-alpha.5"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -1057,7 +1057,7 @@ dependencies = [
 
 [[package]]
 name = "ctt-runtime"
-version = "2.0.0-alpha.3"
+version = "2.0.0-alpha.5"
 dependencies = [
  "ctt-pallet-kp",
  "frame-executive",

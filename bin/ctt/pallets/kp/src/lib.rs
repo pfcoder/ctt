@@ -107,8 +107,9 @@ decl_module! {
 
 		// Initializing events
 		// this is needed only if you are using events in your pallet
-		 fn deposit_event() = default;
+		fn deposit_event() = default;
 
+		#[weight = frame_support::weights::SimpleDispatchInfo::default()]
 		pub fn create_knowledge(origin,  knowledge_type: u8, knowledge_id: T::Hash, product_id: T::Hash,
 			content_hash: T::Hash, tx_id:Option<T::Hash>, memo: Option<T::Hash>) -> dispatch::DispatchResult {
 
