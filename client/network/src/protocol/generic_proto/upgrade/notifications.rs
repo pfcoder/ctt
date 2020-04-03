@@ -38,7 +38,7 @@ use futures::{prelude::*, ready};
 use futures_codec::Framed;
 use libp2p::core::{UpgradeInfo, InboundUpgrade, OutboundUpgrade, upgrade};
 use log::error;
-use std::{borrow::Cow, collections::VecDeque, io, iter, mem, pin::Pin, task::{Context, Poll}};
+use std::{borrow::Cow, collections::VecDeque, convert::TryFrom as _, io, iter, mem, pin::Pin, task::{Context, Poll}};
 use unsigned_varint::codec::UviBytes;
 
 /// Maximum allowed size of the two handshake messages, in bytes.
@@ -164,12 +164,9 @@ where TSubstream: AsyncRead + AsyncWrite,
 {
 	/// Sends the handshake in order to inform the remote that we accept the substream.
 	pub fn send_handshake(&mut self, message: impl Into<Vec<u8>>) {
-		match self.handshake {
-			NotificationsInSubstreamHandshake::NotSent => {}
-			_ => {
-				error!(target: "sub-libp2p", "Tried to send handshake twice");
-				return;
-			}
+		if !matches!(self.handshake, NotificationsInSubstreamHandshake::NotSent) {
+			error!(target: "sub-libp2p", "Tried to send handshake twice");
+			return;
 		}
 
 		self.handshake = NotificationsInSubstreamHandshake::PendingSend(message.into());
@@ -189,8 +186,10 @@ where TSubstream: AsyncRead + AsyncWrite + Unpin,
 			match mem::replace(this.handshake, NotificationsInSubstreamHandshake::Sent) {
 				NotificationsInSubstreamHandshake::Sent =>
 					return Stream::poll_next(this.socket.as_mut(), cx),
-				NotificationsInSubstreamHandshake::NotSent =>
-					return Poll::Pending,
+				NotificationsInSubstreamHandshake::NotSent => {
+					*this.handshake = NotificationsInSubstreamHandshake::NotSent;
+					return Poll::Pending
+				},
 				NotificationsInSubstreamHandshake::PendingSend(msg) =>
 					match Sink::poll_ready(this.socket.as_mut(), cx) {
 						Poll::Ready(_) => {
@@ -200,15 +199,19 @@ where TSubstream: AsyncRead + AsyncWrite + Unpin,
 								Err(err) => return Poll::Ready(Some(Err(err))),
 							}
 						},
-						Poll::Pending =>
-							*this.handshake = NotificationsInSubstreamHandshake::PendingSend(msg),
+						Poll::Pending => {
+							*this.handshake = NotificationsInSubstreamHandshake::PendingSend(msg);
+							return Poll::Pending
+						}
 					},
 				NotificationsInSubstreamHandshake::Close =>
 					match Sink::poll_close(this.socket.as_mut(), cx)? {
 						Poll::Ready(()) =>
 							*this.handshake = NotificationsInSubstreamHandshake::Sent,
-						Poll::Pending =>
-							*this.handshake = NotificationsInSubstreamHandshake::Close,
+						Poll::Pending => {
+							*this.handshake = NotificationsInSubstreamHandshake::Close;
+							return Poll::Pending
+						}
 					},
 			}
 		}
@@ -274,6 +277,13 @@ where TSubstream: AsyncRead + AsyncWrite + Unpin + Send + 'static,
 				need_flush: false,
 			}))
 		})
+	}
+}
+
+impl<TSubstream> NotificationsOutSubstream<TSubstream> {
+	/// Returns the number of items in the queue, capped to `u32::max_value()`.
+	pub fn queue_len(&self) -> u32 {
+		u32::try_from(self.messages_queue.len()).unwrap_or(u32::max_value())
 	}
 }
 
