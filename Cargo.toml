@@ -1,5 +1,8 @@
 [workspace]
 members = [
+    "bin/ctt/node",
+    "bin/ctt/runtime",
+    "bin/ctt/pallets/kp",
 	"bin/node-template/node",
 	"bin/node-template/runtime",
 	"bin/node-template/pallets/template",

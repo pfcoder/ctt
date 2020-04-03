@@ -1011,6 +1011,80 @@ dependencies = [
 ]
 
 [[package]]
+name = "ctt"
+version = "2.0.0-alpha.3"
+dependencies = [
+ "ctt-runtime",
+ "futures 0.3.4",
+ "log 0.4.8",
+ "sc-basic-authorship",
+ "sc-cli",
+ "sc-client",
+ "sc-client-api",
+ "sc-consensus-aura",
+ "sc-executor",
+ "sc-finality-grandpa",
+ "sc-network",
+ "sc-service",
+ "sc-transaction-pool",
+ "sp-consensus",
+ "sp-consensus-aura",
+ "sp-core",
+ "sp-finality-grandpa",
+ "sp-inherents",
+ "sp-runtime",
+ "sp-transaction-pool",
+ "structopt",
+ "substrate-build-script-utils",
+ "vergen",
+]
+
+[[package]]
+name = "ctt-pallet-kp"
+version = "2.0.0-alpha.3"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "safe-mix",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+]
+
+[[package]]
+name = "ctt-runtime"
+version = "2.0.0-alpha.3"
+dependencies = [
+ "ctt-pallet-kp",
+ "frame-executive",
+ "frame-support",
+ "frame-system",
+ "pallet-aura",
+ "pallet-balances",
+ "pallet-grandpa",
+ "pallet-randomness-collective-flip",
+ "pallet-sudo",
+ "pallet-timestamp",
+ "pallet-transaction-payment",
+ "parity-scale-codec",
+ "serde",
+ "sp-api",
+ "sp-block-builder",
+ "sp-consensus-aura",
+ "sp-core",
+ "sp-inherents",
+ "sp-io",
+ "sp-offchain",
+ "sp-runtime",
+ "sp-session",
+ "sp-std",
+ "sp-transaction-pool",
+ "sp-version",
+ "substrate-wasm-builder-runner",
+]
+
+[[package]]
 name = "cuckoofilter"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
