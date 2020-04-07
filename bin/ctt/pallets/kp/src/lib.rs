@@ -55,7 +55,7 @@ pub struct Knowledge<AccountId, Hash> {
 	product_id: Hash,
 	content_hash: Hash,
 	tx_id: Option<Hash>,
-	memo: Option<Hash>,
+	memo: Hash,
 }
 
 /// The pallet's configuration trait.
@@ -111,7 +111,7 @@ decl_module! {
 
 		#[weight = frame_support::weights::SimpleDispatchInfo::default()]
 		pub fn create_knowledge(origin,  knowledge_type: u8, knowledge_id: T::Hash, product_id: T::Hash,
-			content_hash: T::Hash, tx_id:Option<T::Hash>, memo: Option<T::Hash>) -> dispatch::DispatchResult {
+			content_hash: T::Hash, tx_id:Option<T::Hash>, memo: T::Hash) -> dispatch::DispatchResult {
 
 			// Check it was signed and get the signer. See also: ensure_root and ensure_none
 			let who = ensure_signed(origin)?;
