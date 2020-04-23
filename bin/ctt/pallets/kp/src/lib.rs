@@ -2,8 +2,9 @@
 
 use frame_support::{
     codec::{Decode, Encode},
-    decl_error, decl_event, decl_module, decl_storage, dispatch,
+    decl_error, decl_event, decl_module, decl_storage, dispatch, ensure, print,
 };
+
 /// Knowledge power pallet  with necessary imports
 
 /// Feel free to remove or edit this file as needed.
@@ -26,7 +27,6 @@ pub enum KnowledgeType {
     ProductPublish = 0,
     ProductIdentify,
     ProductTry,
-    Comment,
     Unknown,
 }
 
@@ -42,12 +42,12 @@ impl From<u8> for KnowledgeType {
             0x0 => return KnowledgeType::ProductPublish,
             0x1 => return KnowledgeType::ProductIdentify,
             0x2 => return KnowledgeType::ProductTry,
-            0x3 => return KnowledgeType::Comment,
             _ => return KnowledgeType::Unknown,
         };
     }
 }
 
+/// Extra power compute params, both be a percent integer value from 0-100
 #[derive(Encode, Decode, PartialEq, Clone, RuntimeDebug)]
 pub enum KnowledgeExtraComputeParam {
     ProductPublishRatio(u32),
@@ -112,6 +112,39 @@ pub struct KnowledgePowerData<Hash> {
 /// p = ((C * D) * (1 + G / B) / (A * (H / B + F / B))) * (E / G) * (ep / 100)
 /// Simplified to:
 /// p = ((C * D * E * (B + G)) / (A * G * (H + F)) * (ep / 100)
+fn power_update<T: system::Trait>(power_data: &KnowledgePowerData<T::Hash>, ep: u32) -> u32 {
+    match power_data {
+        KnowledgePowerData {
+            knowledge_id: _,
+            owner_profit: a,
+            comment_total_count: b,
+            comment_total_user: c,
+            comment_total_cost: d,
+            comment_max_cost: e,
+            comment_repeat_user_count: f,
+            comment_cost_increase_count: g,
+            comment_self_count: h,
+        } => {
+            if *a == 0 || *g == 0 || (h + f) == 0 {
+                print("Power compute 0, because has 0 value in den !");
+                return 0;
+            }
+
+            // TODO: overflow check
+            c * d * e * (b + g) / (a * g * (h + f)) * (ep / 100)
+        }
+    }
+}
+
+#[derive(Encode, Decode, Clone, Default, RuntimeDebug)]
+pub struct KnowledgeComment<AccountId, Hash> {
+    comment_id: Hash,
+    owner: AccountId,
+    knowledge_id: Hash,
+    comment_hash: Hash,
+    cost: u32,
+    knowledge_owner_profit: u32,
+}
 
 /// The pallet's configuration trait.
 pub trait Trait: system::Trait {
@@ -129,11 +162,18 @@ decl_storage! {
 
         // knowledge id -> knowledge data map
         KnowledgeBaseDataByIdHash get(knowledge_basedata_by_idhash):
-            map hasher(opaque_twox_256) <T as system::Trait>::Hash => KnowledgeBaseDataOf<T>;
+            map hasher(blake2_128_concat) <T as system::Trait>::Hash => KnowledgeBaseDataOf<T>;
 
-        // knowledge id -> knowledge power, this is dynamic update
-        KnowledgePowerDataByIdHash get(knowledge_powerdata_by_idhas):
-            map hasher(opaque_twox_256) <T as system::Trait>::Hash => KnowledgePowerDataOf<T>;
+        // knowledge id -> knowledge power data, this is dynamic update
+        KnowledgePowerDataByIdHash get(knowledge_powerdata_by_idhash):
+            map hasher(blake2_128_concat) <T as system::Trait>::Hash => KnowledgePowerDataOf<T>;
+
+        // global total knowledge power
+        TotalPower get(total_power): u32;
+
+        // miner power table
+        MinerPowerByAccount get(miner_power_by_account):
+            map hasher(blake2_128_concat) <T as system::Trait>::AccountId => u32;
     }
 }
 
@@ -148,6 +188,7 @@ decl_event!(
         /// To emit this event, we call the deposit function, from our runtime functions
         // SomethingStored(u32, AccountId),
         KnowledgeCreated(AccountId),
+        CommentCreated(AccountId),
     }
 );
 
@@ -183,19 +224,37 @@ decl_module! {
             // 1. check if knowledge_id is existed already.
             // 2. check if owner account has enough balance for pay gas fee.
 
-            let k = Knowledge {
+            let k = KnowledgeBaseData {
                 owner: who.clone(),
                 knowledge_type: knowledge_type.into(),
-                 id: knowledge_id,
+                knowledge_id: knowledge_id,
                 product_id,
                 content_hash,
                 tx_id,
                 extra_compute_param,
                 memo
             };
-            <KnowledgeByIdHash<T>>::insert(knowledge_id, k);
+            <KnowledgeBaseDataByIdHash<T>>::insert(knowledge_id, k);
             Self::deposit_event(RawEvent::KnowledgeCreated(who));
 
+            Ok(())
+        }
+
+        #[weight = frame_support::weights::SimpleDispatchInfo::default()]
+        pub fn create_comment(origin, comment_id: T::Hash, knowledge_id: T::Hash, comment_hash: T::Hash, cost: u32, knowledge_owner_profit: u32) -> dispatch::DispatchResult {
+            let who = ensure_signed(origin)?;
+
+            ensure!(<KnowledgeBaseDataByIdHash<T>>::contains_key(knowledge_id), "Knowledge base data not found.");
+            ensure!(<KnowledgePowerDataByIdHash<T>>::contains_key(knowledge_id), "Knowledge power not found.");
+
+            // readout knowledge first, we will use some params to compute power update
+            let k = Self::knowledge_basedata_by_idhash(knowledge_id);
+            let kp = Self::knowledge_powerdata_by_idhash(knowledge_id);
+
+            let power = power_update::<T>(&kp, 1);
+            print("compute power:{}");
+
+            Self::deposit_event(RawEvent::CommentCreated(who));
             Ok(())
         }
     }

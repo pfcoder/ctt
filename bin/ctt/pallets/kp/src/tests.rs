@@ -2,7 +2,7 @@ use frame_support::assert_ok;
 use sp_core::H256;
 use sp_io::hashing::blake2_256;
 
-use crate::{mock::*, Knowledge, KnowledgeExtraComputeParam, KnowledgeType};
+use crate::{mock::*, KnowledgeBaseData, KnowledgeExtraComputeParam, KnowledgeType};
 
 #[test]
 fn ctt_test_knowledge_create() {
@@ -20,10 +20,10 @@ fn ctt_test_knowledge_create() {
             KnowledgeExtraComputeParam::ProductPublishRatio(10)
         ));
         // asserting that the stored value is equal to what we stored
-        let expected_knowledge = Knowledge {
+        let expected_knowledge = KnowledgeBaseData {
             owner: 0,
             knowledge_type: KnowledgeType::ProductPublish,
-            id: test_hash,
+            knowledge_id: test_hash,
             product_id: test_hash,
             content_hash: test_hash,
             tx_id: None,
@@ -31,7 +31,7 @@ fn ctt_test_knowledge_create() {
             extra_compute_param: KnowledgeExtraComputeParam::ProductPublishRatio(10),
         };
 
-        let read = KpModule::knowledge_by_idhash(kid_hash);
+        let read = KpModule::knowledge_basedata_by_idhash(kid_hash);
         println!("read result:{} {}", read.owner, read.content_hash);
 
         assert_eq!(read, expected_knowledge);
