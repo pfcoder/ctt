@@ -1018,15 +1018,15 @@ dependencies = [
 
 [[package]]
 name = "ctt"
-version = "2.0.0-alpha.5"
+version = "2.0.0-dev"
 dependencies = [
  "ctt-runtime",
  "futures 0.3.4",
  "log",
  "sc-basic-authorship",
  "sc-cli",
- "sc-client",
  "sc-client-api",
+ "sc-consensus",
  "sc-consensus-aura",
  "sc-executor",
  "sc-finality-grandpa",
@@ -1046,12 +1046,11 @@ dependencies = [
 
 [[package]]
 name = "ctt-pallet-kp"
-version = "2.0.0-alpha.5"
+version = "2.0.0-dev"
 dependencies = [
  "frame-support",
  "frame-system",
  "parity-scale-codec",
- "safe-mix",
  "sp-core",
  "sp-io",
  "sp-runtime",
@@ -1059,7 +1058,7 @@ dependencies = [
 
 [[package]]
 name = "ctt-runtime"
-version = "2.0.0-alpha.5"
+version = "2.0.0-dev"
 dependencies = [
  "ctt-pallet-kp",
  "frame-executive",
