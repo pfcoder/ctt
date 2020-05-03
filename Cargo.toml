@@ -7,6 +7,7 @@ members = [
 	"bin/node-template/runtime",
 	"bin/node-template/pallets/template",
 	"bin/node/bench",
+	"bin/node/browser-testing",
 	"bin/node/cli",
 	"bin/node/executor",
 	"bin/node/primitives",
@@ -17,7 +18,6 @@ members = [
 	"bin/node/transaction-factory",
 	"bin/utils/subkey",
 	"bin/utils/chain-spec-builder",
-	"client",
 	"client/api",
 	"client/authority-discovery",
 	"client/basic-authorship",
@@ -28,6 +28,7 @@ members = [
 	"client/consensus/aura",
 	"client/consensus/babe",
 	"client/consensus/babe/rpc",
+	"client/consensus/common",
 	"client/consensus/manual-seal",
 	"client/consensus/pow",
 	"client/consensus/uncles",
@@ -97,6 +98,7 @@ members = [
 	"frame/society",
 	"frame/staking",
 	"frame/staking/reward-curve",
+	"frame/staking/fuzzer",
 	"frame/sudo",
 	"frame/support",
 	"frame/support/procedural",
@@ -104,6 +106,7 @@ members = [
 	"frame/support/procedural/tools/derive",
 	"frame/support/test",
 	"frame/system",
+	"frame/system/benchmarking",
 	"frame/system/rpc/runtime-api",
 	"frame/timestamp",
 	"frame/transaction-payment",
@@ -126,6 +129,7 @@ members = [
 	"primitives/consensus/vrf",
 	"primitives/core",
 	"primitives/chain-spec",
+	"primitives/database",
 	"primitives/debug-derive",
 	"primitives/storage",
 	"primitives/externalities",
@@ -136,6 +140,7 @@ members = [
 	"primitives/offchain",
 	"primitives/panic-handler",
 	"primitives/phragmen",
+	"primitives/phragmen/fuzzer",
 	"primitives/phragmen/compact",
 	"primitives/rpc",
 	"primitives/runtime-interface",
@@ -160,6 +165,7 @@ members = [
 	"primitives/timestamp",
 	"primitives/test-primitives",
 	"primitives/transaction-pool",
+	"primitives/tracing",
 	"primitives/trie",
 	"primitives/utils",
 	"primitives/wasm-interface",
@@ -179,4 +185,3 @@ members = [
 [profile.release]
 # Substrate runtime requires unwinding.
 panic = "unwind"
-
