@@ -13,8 +13,9 @@ use frame_support::{
 
 /// For more guidance on Substrate FRAME, see the example pallet
 /// https://github.com/paritytech/substrate/blob/master/frame/example/src/lib.rs
-use sp_runtime::RuntimeDebug;
-use system::ensure_signed;
+use frame_system::{self as system, ensure_signed};
+
+use frame_support::sp_runtime::RuntimeDebug;
 
 #[cfg(test)]
 mod mock;
@@ -27,6 +28,7 @@ pub enum KnowledgeType {
     ProductPublish = 0,
     ProductIdentify,
     ProductTry,
+    Comment,
     Unknown,
 }
 
@@ -42,6 +44,7 @@ impl From<u8> for KnowledgeType {
             0x0 => return KnowledgeType::ProductPublish,
             0x1 => return KnowledgeType::ProductIdentify,
             0x2 => return KnowledgeType::ProductTry,
+            0x3 => return KnowledgeType::Comment,
             _ => return KnowledgeType::Unknown,
         };
     }
@@ -137,13 +140,14 @@ fn power_update<T: system::Trait>(power_data: &KnowledgePowerData<T::Hash>, ep: 
 }
 
 #[derive(Encode, Decode, Clone, Default, RuntimeDebug)]
-pub struct KnowledgeComment<AccountId, Hash> {
-    comment_id: Hash,
+pub struct Knowledge<AccountId, Hash> {
     owner: AccountId,
-    knowledge_id: Hash,
-    comment_hash: Hash,
-    cost: u32,
-    knowledge_owner_profit: u32,
+    knowledge_type: KnowledgeType,
+    id: Hash,
+    product_id: Hash,
+    content_hash: Hash,
+    tx_id: Option<Hash>,
+    memo: Hash,
 }
 
 /// The pallet's configuration trait.
@@ -161,18 +165,18 @@ decl_storage! {
     trait Store for Module<T: Trait> as KpStore {
 
         // knowledge id -> knowledge data map
-        KnowledgeBaseDataByIdHash get(knowledge_basedata_by_idhash):
+        KnowledgeBaseDataByIdHash get(fn knowledge_basedata_by_idhash):
             map hasher(blake2_128_concat) <T as system::Trait>::Hash => KnowledgeBaseDataOf<T>;
 
         // knowledge id -> knowledge power data, this is dynamic update
-        KnowledgePowerDataByIdHash get(knowledge_powerdata_by_idhash):
+        KnowledgePowerDataByIdHash get(fn knowledge_powerdata_by_idhash):
             map hasher(blake2_128_concat) <T as system::Trait>::Hash => KnowledgePowerDataOf<T>;
 
         // global total knowledge power
-        TotalPower get(total_power): u32;
+        TotalPower get(fn total_power): u32;
 
         // miner power table
-        MinerPowerByAccount get(miner_power_by_account):
+        MinerPowerByAccount get(fn miner_power_by_account):
             map hasher(blake2_128_concat) <T as system::Trait>::AccountId => u32;
     }
 }
@@ -213,7 +217,7 @@ decl_module! {
         // this is needed only if you are using events in your pallet
         fn deposit_event() = default;
 
-        #[weight = frame_support::weights::SimpleDispatchInfo::default()]
+        #[weight = 0]
         pub fn create_knowledge(origin,  knowledge_type: u8, knowledge_id: T::Hash, product_id: T::Hash,
             content_hash: T::Hash, tx_id:Option<T::Hash>, memo: T::Hash, extra_compute_param: KnowledgeExtraComputeParam) -> dispatch::DispatchResult {
 
@@ -235,12 +239,13 @@ decl_module! {
                 memo
             };
             <KnowledgeBaseDataByIdHash<T>>::insert(knowledge_id, k);
+
             Self::deposit_event(RawEvent::KnowledgeCreated(who));
 
             Ok(())
         }
 
-        #[weight = frame_support::weights::SimpleDispatchInfo::default()]
+        #[weight = 0]
         pub fn create_comment(origin, comment_id: T::Hash, knowledge_id: T::Hash, comment_hash: T::Hash, cost: u32, knowledge_owner_profit: u32) -> dispatch::DispatchResult {
             let who = ensure_signed(origin)?;
 

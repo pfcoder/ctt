@@ -8,6 +8,8 @@ use sp_runtime::{
     Perbill,
 };
 
+use frame_system as system;
+
 use crate::*;
 
 impl<Hash: Clone, AccountId: Clone> PartialEq for KnowledgeBaseData<AccountId, Hash> {
@@ -44,6 +46,9 @@ impl system::Trait for Test {
     type Event = ();
     type BlockHashCount = BlockHashCount;
     type MaximumBlockWeight = MaximumBlockWeight;
+    type DbWeight = ();
+    type BlockExecutionWeight = ();
+    type ExtrinsicBaseWeight = ();
     type MaximumBlockLength = MaximumBlockLength;
     type AvailableBlockRatio = AvailableBlockRatio;
     type Version = ();
