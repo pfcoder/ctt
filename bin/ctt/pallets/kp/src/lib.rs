@@ -4,6 +4,7 @@ use frame_support::{
     codec::{Decode, Encode},
     decl_error, decl_event, decl_module, decl_storage, dispatch, ensure, print,
 };
+use sp_std::prelude::*;
 
 /// Knowledge power pallet  with necessary imports
 
@@ -15,7 +16,10 @@ use frame_support::{
 /// https://github.com/paritytech/substrate/blob/master/frame/example/src/lib.rs
 use frame_system::{self as system, ensure_signed};
 
-use frame_support::sp_runtime::RuntimeDebug;
+use sp_runtime::{
+    traits::{Dispatchable, Hash, Saturating, Zero},
+    DispatchError, DispatchResult, RuntimeDebug,
+};
 
 #[cfg(test)]
 mod mock;
@@ -71,15 +75,14 @@ type KnowledgeBaseDataOf<T> =
 pub struct KnowledgeBaseData<AccountId, Hash> {
     owner: AccountId,
     knowledge_type: KnowledgeType,
-    knowledge_id: Hash,
-    product_id: Hash,
+    knowledge_id: Vec<u8>,
+    product_id: Vec<u8>,
     content_hash: Hash,
     extra_compute_param: KnowledgeExtraComputeParam,
     memo: Hash,
-    // TODO: owner_sign
 
     // below are optional
-    tx_id: Option<Hash>,
+    tx_id: Option<Vec<u8>>,
 }
 
 type KnowledgePowerDataOf<T> = KnowledgePowerData<<T as system::Trait>::Hash>;
@@ -139,19 +142,8 @@ fn power_update<T: system::Trait>(power_data: &KnowledgePowerData<T::Hash>, ep: 
     }
 }
 
-#[derive(Encode, Decode, Clone, Default, RuntimeDebug)]
-pub struct Knowledge<AccountId, Hash> {
-    owner: AccountId,
-    knowledge_type: KnowledgeType,
-    id: Hash,
-    product_id: Hash,
-    content_hash: Hash,
-    tx_id: Option<Hash>,
-    memo: Hash,
-}
-
 /// The pallet's configuration trait.
-pub trait Trait: system::Trait {
+pub trait Trait: frame_system::Trait {
     // Add other types and constants required to configure this pallet.
 
     /// The overarching event type.
@@ -218,27 +210,28 @@ decl_module! {
         fn deposit_event() = default;
 
         #[weight = 0]
-        pub fn create_knowledge(origin,  knowledge_type: u8, knowledge_id: T::Hash, product_id: T::Hash,
-            content_hash: T::Hash, tx_id:Option<T::Hash>, memo: T::Hash, extra_compute_param: KnowledgeExtraComputeParam) -> dispatch::DispatchResult {
+        pub fn create_knowledge(origin,  knowledge_type: KnowledgeType, knowledge_id: Vec<u8>, product_id: Vec<u8>,
+            content_hash: T::Hash, tx_id:Option<Vec<u8>>, memo: T::Hash, extra_compute_param: KnowledgeExtraComputeParam) -> dispatch::DispatchResult {
 
             // Check it was signed and get the signer. See also: ensure_root and ensure_none
             let who = ensure_signed(origin)?;
 
             // TODO: Validation checks:
-            // 1. check if knowledge_id is existed already.
-            // 2. check if owner account has enough balance for pay gas fee.
+            // check if who is validated application server
+            // check if knowledge_id is existed already.
+            // check if owner account has enough balance for pay gas fee.
 
             let k = KnowledgeBaseData {
                 owner: who.clone(),
-                knowledge_type: knowledge_type.into(),
-                knowledge_id: knowledge_id,
+                knowledge_type: knowledge_type,
+                knowledge_id: knowledge_id.clone(),
                 product_id,
                 content_hash,
                 tx_id,
                 extra_compute_param,
                 memo
             };
-            <KnowledgeBaseDataByIdHash<T>>::insert(knowledge_id, k);
+            <KnowledgeBaseDataByIdHash<T>>::insert(T::Hashing::hash(&knowledge_id), k);
 
             Self::deposit_event(RawEvent::KnowledgeCreated(who));
 
@@ -260,6 +253,14 @@ decl_module! {
             print("compute power:{}");
 
             Self::deposit_event(RawEvent::CommentCreated(who));
+            Ok(())
+        }
+
+        #[weight = 0]
+        pub fn test(origin) -> dispatch::DispatchResult {
+            let who = ensure_signed(origin)?;
+
+            Self::deposit_event(RawEvent::KnowledgeCreated(who));
             Ok(())
         }
     }

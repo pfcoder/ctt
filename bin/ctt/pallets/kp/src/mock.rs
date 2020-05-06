@@ -4,9 +4,10 @@ use frame_support::{impl_outer_origin, parameter_types, weights::Weight};
 use sp_core::H256;
 use sp_runtime::{
     testing::Header,
-    traits::{BlakeTwo256, IdentityLookup},
+    traits::{BlakeTwo256, Hash, IdentityLookup},
     Perbill,
 };
+use sp_std::prelude::*;
 
 use frame_system as system;
 
@@ -14,7 +15,7 @@ use crate::*;
 
 impl<Hash: Clone, AccountId: Clone> PartialEq for KnowledgeBaseData<AccountId, Hash> {
     fn eq(&self, other: &Self) -> bool {
-        self.knowledge_type == other.knowledge_type
+        self.knowledge_type == other.knowledge_type && self.knowledge_id == other.knowledge_id
     }
 }
 

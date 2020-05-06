@@ -7,13 +7,13 @@ use crate::{mock::*, KnowledgeBaseData, KnowledgeExtraComputeParam, KnowledgeTyp
 #[test]
 fn ctt_test_knowledge_create() {
     new_test_ext().execute_with(|| {
-        let kid_hash = H256::from_slice(&blake2_256(String::from("GUID-01").as_bytes()));
+        let kid_hash = H256::from_slice(&blake2_256(String::from("K01").as_bytes()));
         let test_hash = H256::from_slice(&blake2_256(String::from("da038934asd1").as_bytes()));
         assert_ok!(KpModule::create_knowledge(
             Origin::signed(1),
-            0,
-            kid_hash,
-            test_hash,
+            KnowledgeType::ProductPublish,
+            String::from("K01").into_bytes(),
+            String::from("P01").into_bytes(),
             test_hash,
             None,
             test_hash,
@@ -23,8 +23,8 @@ fn ctt_test_knowledge_create() {
         let expected_knowledge = KnowledgeBaseData {
             owner: 0,
             knowledge_type: KnowledgeType::ProductPublish,
-            knowledge_id: test_hash,
-            product_id: test_hash,
+            knowledge_id: String::from("K01").into_bytes(),
+            product_id: String::from("P01").into_bytes(),
             content_hash: test_hash,
             tx_id: None,
             memo: test_hash,

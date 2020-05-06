@@ -11,6 +11,11 @@ description = "Knowledge power pallet"
 [dependencies]
 codec = { package = "parity-scale-codec", version = "1.3.0", default-features = false, features = ["derive"] }
 
+[dependencies.sp-std]
+default-features = false
+version = "2.0.0-dev"
+path = "../../../../primitives/std"
+
 [dependencies.frame-support]
 default-features = false
 version = "2.0.0-dev"
@@ -30,7 +35,7 @@ default-features = false
 version = "2.0.0-dev"
 path = "../../../../primitives/io"
 
-[dev-dependencies.sp-runtime]
+[dependencies.sp-runtime]
 default-features = false
 version = "2.0.0-dev"
 path = "../../../../primitives/runtime"
