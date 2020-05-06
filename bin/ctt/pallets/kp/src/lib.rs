@@ -255,13 +255,5 @@ decl_module! {
             Self::deposit_event(RawEvent::CommentCreated(who));
             Ok(())
         }
-
-        #[weight = 0]
-        pub fn test(origin) -> dispatch::DispatchResult {
-            let who = ensure_signed(origin)?;
-
-            Self::deposit_event(RawEvent::KnowledgeCreated(who));
-            Ok(())
-        }
     }
 }
