@@ -185,6 +185,7 @@ decl_event!(
         // SomethingStored(u32, AccountId),
         KnowledgeCreated(AccountId),
         CommentCreated(AccountId),
+        Test(AccountId),
     }
 );
 
@@ -253,6 +254,16 @@ decl_module! {
             print("compute power:{}");
 
             Self::deposit_event(RawEvent::CommentCreated(who));
+            Ok(())
+        }
+
+        #[weight = 0]
+        pub fn test(origin, no: u32) -> dispatch::DispatchResult {
+            let who = ensure_signed(origin)?;
+
+            print(no);
+
+            Self::deposit_event(RawEvent::Test(who));
             Ok(())
         }
     }
