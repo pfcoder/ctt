@@ -211,7 +211,7 @@ decl_module! {
         fn deposit_event() = default;
 
         #[weight = 0]
-        pub fn create_knowledge(origin,  knowledge_type: KnowledgeType, knowledge_id: Vec<u8>, product_id: Vec<u8>,
+        pub fn create_knowledge(origin,  knowledge_type: u8, knowledge_id: Vec<u8>, product_id: Vec<u8>,
             content_hash: T::Hash, tx_id:Option<Vec<u8>>, memo: T::Hash, extra_compute_param: KnowledgeExtraComputeParam) -> dispatch::DispatchResult {
 
             // Check it was signed and get the signer. See also: ensure_root and ensure_none
@@ -224,7 +224,7 @@ decl_module! {
 
             let k = KnowledgeBaseData {
                 owner: who.clone(),
-                knowledge_type: knowledge_type,
+                knowledge_type: knowledge_type.into(),
                 knowledge_id: knowledge_id.clone(),
                 product_id,
                 content_hash,
@@ -258,10 +258,10 @@ decl_module! {
         }
 
         #[weight = 0]
-        pub fn test(origin, no: u32) -> dispatch::DispatchResult {
+        pub fn test(origin, no: T::Hash, x: u8, v: Vec<u8>) -> dispatch::DispatchResult {
             let who = ensure_signed(origin)?;
 
-            print(no);
+            //print(no);
 
             Self::deposit_event(RawEvent::Test(who));
             Ok(())
