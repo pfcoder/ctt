@@ -2,7 +2,7 @@
 
 use frame_support::{
     codec::{Decode, Encode},
-    decl_error, decl_event, decl_module, decl_storage, dispatch, ensure, print,
+    decl_error, decl_event, decl_module, decl_storage, dispatch, ensure,
 };
 use sp_std::prelude::*;
 
@@ -17,9 +17,18 @@ use sp_std::prelude::*;
 use frame_system::{self as system, ensure_signed};
 
 use sp_runtime::{
+    print,
     traits::{Dispatchable, Hash, Saturating, Zero},
-    DispatchError, DispatchResult, RuntimeDebug,
+    DispatchError, DispatchResult, MultiSignature, RuntimeDebug,
 };
+
+use sp_core::{
+    crypto::{self, AccountId32, Public},
+    sr25519,
+};
+use sp_runtime::traits::{IdentifyAccount, Verify};
+
+pub type AccountId = <<MultiSignature as Verify>::Signer as IdentifyAccount>::AccountId;
 
 #[cfg(test)]
 mod mock;
@@ -199,14 +208,20 @@ decl_module! {
 
         #[weight = 0]
         pub fn create_knowledge(origin,  knowledge_type: u8, knowledge_id: Vec<u8>, model_id: Vec<u8>, product_id: Vec<u8>,
-            content_hash: T::Hash, tx_id: Vec<u8>, memo: T::Hash, extra_compute_param: u32) -> dispatch::DispatchResult {
+            content_hash: T::Hash, tx_id: Vec<u8>, memo: T::Hash, extra_compute_param: u32, auth_server: AccountId, auth_sign: sr25519::Signature) -> dispatch::DispatchResult {
 
             // Check it was signed and get the signer. See also: ensure_root and ensure_none
             let who = ensure_signed(origin)?;
 
             // TODO: Validation checks:
-            // check if who is validated application server
             // check if knowledge_id is existed already.
+
+            // auth sign check with auth_server & auth_sign
+            //let ms: MultiSignature = auth_sign.into();
+            //ensure!(Self::is_auth_server(&auth_server), "not valid auth server");
+            ensure!(Self::auth_server_verify(auth_server, auth_sign, &[1]), "auth server signature verification fail");
+
+            print("server auth check passed");
 
             let k = KnowledgeBaseData {
                 owner: who.clone(),
@@ -270,5 +285,11 @@ decl_module! {
 impl<T: Trait> Module<T> {
     pub fn is_auth_server(who: &T::AccountId) -> bool {
         <AuthServers<T>>::get().contains(who)
+    }
+
+    pub fn auth_server_verify(server: AccountId, sign: sr25519::Signature, msg: &[u8]) -> bool {
+        let ms: MultiSignature = sign.into();
+        ms.verify(msg, &server)
+        //true
     }
 }
