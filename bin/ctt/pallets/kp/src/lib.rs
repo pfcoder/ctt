@@ -54,42 +54,27 @@ impl From<u8> for KnowledgeType {
     }
 }
 
-/// Extra power compute params, both be a percent integer value from 0-100
-#[derive(Encode, Decode, PartialEq, Clone, RuntimeDebug)]
-pub enum KnowledgeExtraComputeParam {
-    ProductPublishRatio(u32),
-    ProductIdentityNotMatchRatio(u32),
-    ProductTryParamsRatio(u32),
-}
-
-impl Default for KnowledgeExtraComputeParam {
-    fn default() -> Self {
-        KnowledgeExtraComputeParam::ProductPublishRatio(0)
-    }
-}
-
 type KnowledgeBaseDataOf<T> =
     KnowledgeBaseData<<T as system::Trait>::AccountId, <T as system::Trait>::Hash>;
 
 #[derive(Encode, Decode, Clone, Default, RuntimeDebug)]
 pub struct KnowledgeBaseData<AccountId, Hash> {
-    owner: AccountId,
-    knowledge_type: KnowledgeType,
-    knowledge_id: Vec<u8>,
-    product_id: Vec<u8>,
     content_hash: Hash,
-    extra_compute_param: KnowledgeExtraComputeParam,
+    extra_compute_param: u32,
+    knowledge_id: Vec<u8>,
+    knowledge_type: KnowledgeType,
     memo: Hash,
-
-    // below are optional
-    tx_id: Option<Vec<u8>>,
+    model_id: Vec<u8>,
+    owner: AccountId,
+    product_id: Vec<u8>,
+    tx_id: Vec<u8>,
 }
 
-type KnowledgePowerDataOf<T> = KnowledgePowerData<<T as system::Trait>::Hash>;
+//type KnowledgePowerDataOf<T> = KnowledgePowerData<<T as system::Trait>::Hash>;
 
 #[derive(Encode, Decode, Clone, Default, RuntimeDebug)]
-pub struct KnowledgePowerData<Hash> {
-    knowledge_id: Hash,
+pub struct KnowledgePowerData {
+    knowledge_id: Vec<u8>,
     // A: knowledge owner total profit
     owner_profit: u32,
     // B: comment total count
@@ -118,7 +103,7 @@ pub struct KnowledgePowerData<Hash> {
 /// p = ((C * D) * (1 + G / B) / (A * (H / B + F / B))) * (E / G) * (ep / 100)
 /// Simplified to:
 /// p = ((C * D * E * (B + G)) / (A * G * (H + F)) * (ep / 100)
-fn power_update<T: system::Trait>(power_data: &KnowledgePowerData<T::Hash>, ep: u32) -> u32 {
+fn power_update<T: system::Trait>(power_data: &KnowledgePowerData, ep: u32) -> u32 {
     match power_data {
         KnowledgePowerData {
             knowledge_id: _,
@@ -154,7 +139,9 @@ pub trait Trait: frame_system::Trait {
 decl_storage! {
     // It is important to update your storage name so that your pallet's
     // storage items are isolated from other pallets.
-    trait Store for Module<T: Trait> as KpStore {
+    trait Store for Module<T: Trait> as Kp {
+        // Trusted application server account
+        AuthServers get(fn auth_servers) config() : Vec<T::AccountId>;
 
         // knowledge id -> knowledge data map
         KnowledgeBaseDataByIdHash get(fn knowledge_basedata_by_idhash):
@@ -162,7 +149,7 @@ decl_storage! {
 
         // knowledge id -> knowledge power data, this is dynamic update
         KnowledgePowerDataByIdHash get(fn knowledge_powerdata_by_idhash):
-            map hasher(blake2_128_concat) <T as system::Trait>::Hash => KnowledgePowerDataOf<T>;
+            map hasher(blake2_128_concat) <T as system::Trait>::Hash => KnowledgePowerData;
 
         // global total knowledge power
         TotalPower get(fn total_power): u32;
@@ -211,8 +198,8 @@ decl_module! {
         fn deposit_event() = default;
 
         #[weight = 0]
-        pub fn create_knowledge(origin,  knowledge_type: u8, knowledge_id: Vec<u8>, product_id: Vec<u8>,
-            content_hash: T::Hash, tx_id:Option<Vec<u8>>, memo: T::Hash, extra_compute_param: KnowledgeExtraComputeParam) -> dispatch::DispatchResult {
+        pub fn create_knowledge(origin,  knowledge_type: u8, knowledge_id: Vec<u8>, model_id: Vec<u8>, product_id: Vec<u8>,
+            content_hash: T::Hash, tx_id: Vec<u8>, memo: T::Hash, extra_compute_param: u32) -> dispatch::DispatchResult {
 
             // Check it was signed and get the signer. See also: ensure_root and ensure_none
             let who = ensure_signed(origin)?;
@@ -220,19 +207,29 @@ decl_module! {
             // TODO: Validation checks:
             // check if who is validated application server
             // check if knowledge_id is existed already.
-            // check if owner account has enough balance for pay gas fee.
 
             let k = KnowledgeBaseData {
                 owner: who.clone(),
                 knowledge_type: knowledge_type.into(),
                 knowledge_id: knowledge_id.clone(),
+                model_id,
                 product_id,
                 content_hash,
                 tx_id,
                 extra_compute_param,
                 memo
             };
-            <KnowledgeBaseDataByIdHash<T>>::insert(T::Hashing::hash(&knowledge_id), k);
+
+            // init this knowledge power map
+            let p = KnowledgePowerData {
+                knowledge_id: knowledge_id.clone(),
+                ..Default::default()
+            };
+
+            let kid_hash = T::Hashing::hash(&knowledge_id);
+
+            <KnowledgeBaseDataByIdHash<T>>::insert(kid_hash, k);
+            <KnowledgePowerDataByIdHash<T>>::insert(kid_hash, p);
 
             Self::deposit_event(RawEvent::KnowledgeCreated(who));
 
@@ -258,13 +255,20 @@ decl_module! {
         }
 
         #[weight = 0]
-        pub fn test(origin, no: T::Hash, x: u8, v: Vec<u8>) -> dispatch::DispatchResult {
+        pub fn test(origin, no: T::Hash, x: u8, v: Vec<u8>, owner: T::AccountId) -> dispatch::DispatchResult {
             let who = ensure_signed(origin)?;
 
-            //print(no);
+            print("test owner:");
+            //print(owner);
 
-            Self::deposit_event(RawEvent::Test(who));
+            Self::deposit_event(RawEvent::Test(owner));
             Ok(())
         }
+    }
+}
+
+impl<T: Trait> Module<T> {
+    pub fn is_auth_server(who: &T::AccountId) -> bool {
+        <AuthServers<T>>::get().contains(who)
     }
 }
