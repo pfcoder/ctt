@@ -68,8 +68,9 @@ type KnowledgeBaseDataOf<T> =
 
 #[derive(Encode, Decode, Clone, Default, RuntimeDebug)]
 pub struct KnowledgeBaseData<AccountId, Hash> {
+    app_id: Vec<u8>,
     content_hash: Hash,
-    extra_compute_param: u32,
+    extra_compute_param: u8,
     knowledge_id: Vec<u8>,
     knowledge_type: KnowledgeType,
     memo: Hash,
@@ -153,8 +154,11 @@ decl_storage! {
         AuthServers get(fn auth_servers) config() : Vec<T::AccountId>;
 
         // knowledge id -> knowledge data map
+        /*KnowledgeBaseDataByIdHash get(fn knowledge_basedata_by_idhash):
+            map hasher(blake2_128_concat) <T as system::Trait>::Hash => KnowledgeBaseDataOf<T>;*/
+
         KnowledgeBaseDataByIdHash get(fn knowledge_basedata_by_idhash):
-            map hasher(blake2_128_concat) <T as system::Trait>::Hash => KnowledgeBaseDataOf<T>;
+            map hasher(twox_64_concat) (Vec<u8>, Vec<u8>) => KnowledgeBaseDataOf<T>;
 
         // knowledge id -> knowledge power data, this is dynamic update
         KnowledgePowerDataByIdHash get(fn knowledge_powerdata_by_idhash):
@@ -207,25 +211,43 @@ decl_module! {
         fn deposit_event() = default;
 
         #[weight = 0]
-        pub fn create_knowledge(origin,  knowledge_type: u8, knowledge_id: Vec<u8>, model_id: Vec<u8>, product_id: Vec<u8>,
-            content_hash: T::Hash, tx_id: Vec<u8>, memo: T::Hash, extra_compute_param: u32, auth_server: AccountId, auth_sign: sr25519::Signature) -> dispatch::DispatchResult {
+        pub fn create_knowledge(origin,
+            app_id: Vec<u8>,
+            knowledge_type: u8,
+            knowledge_id: Vec<u8>,
+            model_id: Vec<u8>,
+            product_id: Vec<u8>,
+            content_hash: T::Hash,
+            tx_id: Vec<u8>,
+            memo: T::Hash,
+            extra_compute_param: u8,
+            auth_server: AccountId,
+            auth_sign: sr25519::Signature) -> dispatch::DispatchResult {
 
             // Check it was signed and get the signer. See also: ensure_root and ensure_none
             let who = ensure_signed(origin)?;
 
             // TODO: Validation checks:
             // check if knowledge_id is existed already.
+            ensure!(!<KnowledgeBaseDataByIdHash<T>>::contains_key((app_id.clone(), knowledge_id.clone())), "Knowledge base data already existed.");
+
+            // construct verification u8 array:
+            let mut buf = vec![];
+            buf.append(&mut(app_id.clone()));
+            buf.append(&mut(knowledge_id.clone()));
+            buf.append(&mut vec![knowledge_type, extra_compute_param]);
+
+            print(buf.len());
 
             // auth sign check with auth_server & auth_sign
-            //let ms: MultiSignature = auth_sign.into();
-            //ensure!(Self::is_auth_server(&auth_server), "not valid auth server");
-            ensure!(Self::auth_server_verify(auth_server, auth_sign, &[1]), "auth server signature verification fail");
+            ensure!(Self::auth_server_verify(auth_server, auth_sign, &buf), "auth server signature verification fail");
 
             print("server auth check passed");
 
             let k = KnowledgeBaseData {
                 owner: who.clone(),
                 knowledge_type: knowledge_type.into(),
+                app_id: app_id.clone(),
                 knowledge_id: knowledge_id.clone(),
                 model_id,
                 product_id,
@@ -241,10 +263,10 @@ decl_module! {
                 ..Default::default()
             };
 
-            let kid_hash = T::Hashing::hash(&knowledge_id);
+            //let kid_hash = T::Hashing::hash(&knowledge_id);
 
-            <KnowledgeBaseDataByIdHash<T>>::insert(kid_hash, k);
-            <KnowledgePowerDataByIdHash<T>>::insert(kid_hash, p);
+            <KnowledgeBaseDataByIdHash<T>>::insert((app_id, knowledge_id), k);
+            //<KnowledgePowerDataByIdHash<T>>::insert(kid_hash, p);
 
             Self::deposit_event(RawEvent::KnowledgeCreated(who));
 
@@ -255,7 +277,7 @@ decl_module! {
         pub fn create_comment(origin, comment_id: T::Hash, knowledge_id: T::Hash, comment_hash: T::Hash, cost: u32, knowledge_owner_profit: u32) -> dispatch::DispatchResult {
             let who = ensure_signed(origin)?;
 
-            ensure!(<KnowledgeBaseDataByIdHash<T>>::contains_key(knowledge_id), "Knowledge base data not found.");
+            /*ensure!(<KnowledgeBaseDataByIdHash<T>>::contains_key(knowledge_id), "Knowledge base data not found.");
             ensure!(<KnowledgePowerDataByIdHash<T>>::contains_key(knowledge_id), "Knowledge power not found.");
 
             // readout knowledge first, we will use some params to compute power update
@@ -263,7 +285,7 @@ decl_module! {
             let kp = Self::knowledge_powerdata_by_idhash(knowledge_id);
 
             let power = power_update::<T>(&kp, 1);
-            print("compute power:{}");
+            print("compute power:{}");*/
 
             Self::deposit_event(RawEvent::CommentCreated(who));
             Ok(())
@@ -290,6 +312,5 @@ impl<T: Trait> Module<T> {
     pub fn auth_server_verify(server: AccountId, sign: sr25519::Signature, msg: &[u8]) -> bool {
         let ms: MultiSignature = sign.into();
         ms.verify(msg, &server)
-        //true
     }
 }
