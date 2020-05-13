@@ -16,16 +16,9 @@ use sp_std::prelude::*;
 /// https://github.com/paritytech/substrate/blob/master/frame/example/src/lib.rs
 use frame_system::{self as system, ensure_signed};
 
-use sp_runtime::{
-    print,
-    traits::{Dispatchable, Hash, Saturating, Zero},
-    DispatchError, DispatchResult, MultiSignature, RuntimeDebug,
-};
+use sp_runtime::{print, traits::Dispatchable, MultiSignature, RuntimeDebug};
 
-use sp_core::{
-    crypto::{self, AccountId32, Public},
-    sr25519,
-};
+use sp_core::sr25519;
 use sp_runtime::traits::{IdentifyAccount, Verify};
 
 pub type AccountId = <<MultiSignature as Verify>::Signer as IdentifyAccount>::AccountId;
@@ -80,11 +73,29 @@ pub struct KnowledgeBaseData<AccountId, Hash> {
     tx_id: Vec<u8>,
 }
 
-//type KnowledgePowerDataOf<T> = KnowledgePowerData<<T as system::Trait>::Hash>;
+type KnowledgeCommentDataOf<T> =
+    KnowledgeCommentData<<T as system::Trait>::AccountId, <T as system::Trait>::Hash>;
 
 #[derive(Encode, Decode, Clone, Default, RuntimeDebug)]
-pub struct KnowledgePowerData {
+pub struct KnowledgeCommentData<AccountId, Hash> {
+    app_id: Vec<u8>,
     knowledge_id: Vec<u8>,
+    comment_id: Vec<u8>,
+    last_comment_id: Vec<u8>,
+    comment_hash: Hash,
+    comment_fee: u32,
+    knowledge_profit: u32,
+    owner: AccountId,
+}
+
+type KnowledgePowerDataOf<T> = KnowledgePowerData<<T as system::Trait>::AccountId>;
+
+#[derive(Encode, Decode, Clone, Default, RuntimeDebug)]
+pub struct KnowledgePowerData<AccountId> {
+    app_id: Vec<u8>,
+    knowledge_id: Vec<u8>,
+    owner: AccountId,
+    power: u32,
     // A: knowledge owner total profit
     owner_profit: u32,
     // B: comment total count
@@ -113,10 +124,13 @@ pub struct KnowledgePowerData {
 /// p = ((C * D) * (1 + G / B) / (A * (H / B + F / B))) * (E / G) * (ep / 100)
 /// Simplified to:
 /// p = ((C * D * E * (B + G)) / (A * G * (H + F)) * (ep / 100)
-fn power_update<T: system::Trait>(power_data: &KnowledgePowerData, ep: u32) -> u32 {
+fn power_update<T: system::Trait>(power_data: &KnowledgePowerData<T::AccountId>, ep: u32) -> u32 {
     match power_data {
         KnowledgePowerData {
+            app_id: _,
             knowledge_id: _,
+            owner: _,
+            power: _,
             owner_profit: a,
             comment_total_count: b,
             comment_total_user: c,
@@ -126,13 +140,21 @@ fn power_update<T: system::Trait>(power_data: &KnowledgePowerData, ep: u32) -> u
             comment_cost_increase_count: g,
             comment_self_count: h,
         } => {
-            if *a == 0 || *g == 0 || (h + f) == 0 {
+            if *a == 0 || *g == 0 {
                 print("Power compute 0, because has 0 value in den !");
                 return 0;
             }
 
             // TODO: overflow check
-            c * d * e * (b + g) / (a * g * (h + f)) * (ep / 100)
+            // c * d * e * (b + g) / (a * g * (h + f)) * (ep / 100)
+            let step1 = c * d * e * (b + g);
+            let mut step2 = a * g;
+            if h + f > 0 {
+                step2 *= h + f;
+            }
+
+            let result: u32 = step1 * ep / step2 / 100;
+            result
         }
     }
 }
@@ -153,16 +175,21 @@ decl_storage! {
         // Trusted application server account
         AuthServers get(fn auth_servers) config() : Vec<T::AccountId>;
 
-        // knowledge id -> knowledge data map
-        /*KnowledgeBaseDataByIdHash get(fn knowledge_basedata_by_idhash):
-            map hasher(blake2_128_concat) <T as system::Trait>::Hash => KnowledgeBaseDataOf<T>;*/
-
+        // (AppId, KnowledgeId) -> KnowledgeBaseData
         KnowledgeBaseDataByIdHash get(fn knowledge_basedata_by_idhash):
             map hasher(twox_64_concat) (Vec<u8>, Vec<u8>) => KnowledgeBaseDataOf<T>;
 
-        // knowledge id -> knowledge power data, this is dynamic update
+        // (AppId, CommentId) -> KnowledgeCommentData
+        KnowledgeCommentDataByIdHash get(fn knowledge_commentdata_by_idhash):
+            map hasher(twox_64_concat) (Vec<u8>, Vec<u8>) => KnowledgeCommentDataOf<T>;
+
+        // (AppId, KnowledgeId) -> KnowledgePowerData
         KnowledgePowerDataByIdHash get(fn knowledge_powerdata_by_idhash):
-            map hasher(blake2_128_concat) <T as system::Trait>::Hash => KnowledgePowerData;
+            map hasher(twox_64_concat) (Vec<u8>, Vec<u8>) => KnowledgePowerDataOf<T>;
+
+        // (AccountId, AppId, KnowledgeId) -> u32
+        KnowledgeCommentUserCountHash get(fn knowledge_comment_user_count_hash):
+            map hasher(twox_64_concat) (<T as system::Trait>::AccountId, Vec<u8>, Vec<u8>) => u32;
 
         // global total knowledge power
         TotalPower get(fn total_power): u32;
@@ -185,7 +212,6 @@ decl_event!(
         // SomethingStored(u32, AccountId),
         KnowledgeCreated(AccountId),
         CommentCreated(AccountId),
-        Test(AccountId),
     }
 );
 
@@ -227,7 +253,7 @@ decl_module! {
             // Check it was signed and get the signer. See also: ensure_root and ensure_none
             let who = ensure_signed(origin)?;
 
-            // TODO: Validation checks:
+            // Validation checks:
             // check if knowledge_id is existed already.
             ensure!(!<KnowledgeBaseDataByIdHash<T>>::contains_key((app_id.clone(), knowledge_id.clone())), "Knowledge base data already existed.");
 
@@ -237,12 +263,8 @@ decl_module! {
             buf.append(&mut(knowledge_id.clone()));
             buf.append(&mut vec![knowledge_type, extra_compute_param]);
 
-            print(buf.len());
-
             // auth sign check with auth_server & auth_sign
             ensure!(Self::auth_server_verify(auth_server, auth_sign, &buf), "auth server signature verification fail");
-
-            print("server auth check passed");
 
             let k = KnowledgeBaseData {
                 owner: who.clone(),
@@ -259,14 +281,16 @@ decl_module! {
 
             // init this knowledge power map
             let p = KnowledgePowerData {
+                app_id: app_id.clone(),
                 knowledge_id: knowledge_id.clone(),
+                owner: who.clone(),
                 ..Default::default()
             };
 
-            //let kid_hash = T::Hashing::hash(&knowledge_id);
+            let key = (app_id, knowledge_id);
 
-            <KnowledgeBaseDataByIdHash<T>>::insert((app_id, knowledge_id), k);
-            //<KnowledgePowerDataByIdHash<T>>::insert(kid_hash, p);
+            <KnowledgeBaseDataByIdHash<T>>::insert(key.clone(), k);
+            <KnowledgePowerDataByIdHash<T>>::insert(key, p);
 
             Self::deposit_event(RawEvent::KnowledgeCreated(who));
 
@@ -274,34 +298,81 @@ decl_module! {
         }
 
         #[weight = 0]
-        pub fn create_comment(origin, comment_id: T::Hash, knowledge_id: T::Hash, comment_hash: T::Hash, cost: u32, knowledge_owner_profit: u32) -> dispatch::DispatchResult {
+        pub fn create_comment(origin,
+            app_id: Vec<u8>,
+            comment_id: Vec<u8>,
+            knowledge_id: Vec<u8>,
+            comment_hash: T::Hash,
+            cost: u32,
+            knowledge_owner_profit: u32,
+            auth_server: AccountId,
+            auth_sign: sr25519::Signature) -> dispatch::DispatchResult {
             let who = ensure_signed(origin)?;
 
-            /*ensure!(<KnowledgeBaseDataByIdHash<T>>::contains_key(knowledge_id), "Knowledge base data not found.");
-            ensure!(<KnowledgePowerDataByIdHash<T>>::contains_key(knowledge_id), "Knowledge power not found.");
+            let knowledge_key = (app_id.clone(), knowledge_id.clone());
 
-            // readout knowledge first, we will use some params to compute power update
-            let k = Self::knowledge_basedata_by_idhash(knowledge_id);
-            let kp = Self::knowledge_powerdata_by_idhash(knowledge_id);
+            // make sure matched knowledge exist
+            ensure!(<KnowledgePowerDataByIdHash<T>>::contains_key(knowledge_key.clone()), "Knowledge power data not found.");
 
-            let power = power_update::<T>(&kp, 1);
-            print("compute power:{}");*/
+            let comment_key = (app_id.clone(), comment_id.clone());
+            // make sure same comment id not exist
+            ensure!(!<KnowledgeCommentDataByIdHash<T>>::contains_key(comment_key.clone()), "Knowledge comment already exsited.");
+
+            // TODO: auth server sign check
+
+            let user_comment_count_key = (who.clone(), app_id.clone(), knowledge_id.clone());
+            <KnowledgeCommentUserCountHash<T>>::mutate(user_comment_count_key.clone(), |cc| {
+                *cc += 1;
+            });
+            // read it out
+            let repeat_count = Self::knowledge_comment_user_count_hash(user_comment_count_key);
+            print(repeat_count);
+
+            let k = Self::knowledge_basedata_by_idhash(knowledge_key.clone());
+
+            // update kp
+            let mut before_update_power: u32 = 0;
+            let mut new_power: u32 = 0;
+
+            <KnowledgePowerDataByIdHash<T>>::mutate(knowledge_key.clone(), |kp| {
+                kp.owner_profit += knowledge_owner_profit;
+                kp.comment_total_count += 1;
+                kp.comment_total_cost += cost;
+
+                if cost > kp.comment_max_cost {
+                    kp.comment_max_cost = cost;
+                    kp.comment_cost_increase_count += 1;
+                }
+
+                if who == kp.owner {
+                    kp.comment_self_count += 1;
+                }
+
+                if repeat_count > 1 {
+                    kp.comment_repeat_user_count += 1;
+                } else {
+                    kp.comment_total_user += 1;
+                }
+
+                before_update_power = kp.power;
+                kp.power = power_update::<T>(&kp, k.extra_compute_param as u32);
+                new_power = kp.power;
+                print(before_update_power);
+                print(kp.power);
+            });
+
+            // update miner power, update diff only
+            if new_power > before_update_power {
+                print("power need update");
+                <MinerPowerByAccount<T>>::mutate(k.owner, |mp| {
+                    *mp += new_power - before_update_power;
+                });
+            }
 
             Self::deposit_event(RawEvent::CommentCreated(who));
             Ok(())
         }
-
-        #[weight = 0]
-        pub fn test(origin, no: T::Hash, x: u8, v: Vec<u8>, owner: T::AccountId) -> dispatch::DispatchResult {
-            let who = ensure_signed(origin)?;
-
-            print("test owner:");
-            //print(owner);
-
-            Self::deposit_event(RawEvent::Test(owner));
-            Ok(())
-        }
-    }
+      }
 }
 
 impl<T: Trait> Module<T> {
