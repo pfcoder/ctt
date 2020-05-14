@@ -16,7 +16,7 @@ use sp_std::prelude::*;
 /// https://github.com/paritytech/substrate/blob/master/frame/example/src/lib.rs
 use frame_system::{self as system, ensure_signed};
 
-use sp_runtime::{print, traits::Dispatchable, MultiSignature, RuntimeDebug};
+use sp_runtime::{print, MultiSignature, RuntimeDebug};
 
 use sp_core::sr25519;
 use sp_runtime::traits::{IdentifyAccount, Verify};
