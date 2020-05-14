@@ -7,14 +7,15 @@ use sp_runtime::{
     traits::{BlakeTwo256, IdentityLookup},
     Perbill,
 };
+use sp_std::prelude::*;
 
 use frame_system as system;
 
 use crate::*;
 
-impl<Hash: Clone, AccountId: Clone> PartialEq for Knowledge<AccountId, Hash> {
+impl<Hash: Clone, AccountId: Clone> PartialEq for KnowledgeBaseData<AccountId, Hash> {
     fn eq(&self, other: &Self) -> bool {
-        self.knowledge_type == other.knowledge_type
+        self.knowledge_type == other.knowledge_type && self.knowledge_id == other.knowledge_id
     }
 }
 
