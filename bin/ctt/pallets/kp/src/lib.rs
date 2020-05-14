@@ -302,6 +302,7 @@ decl_module! {
             app_id: Vec<u8>,
             comment_id: Vec<u8>,
             knowledge_id: Vec<u8>,
+            last_comment_id: Vec<u8>,
             comment_hash: T::Hash,
             cost: u32,
             knowledge_owner_profit: u32,
@@ -318,9 +319,28 @@ decl_module! {
             // make sure same comment id not exist
             ensure!(!<KnowledgeCommentDataByIdHash<T>>::contains_key(comment_key.clone()), "Knowledge comment already exsited.");
 
-            // TODO: auth server sign check
+            let mut buf = vec![];
+            buf.append(&mut(app_id.clone()));
+            buf.append(&mut(knowledge_id.clone()));
+            buf.append(&mut(comment_id.clone()));
+            buf.append(&mut(knowledge_owner_profit.to_be_bytes().to_vec()));
+            // TODO: more fields to verify
+            ensure!(Self::auth_server_verify(auth_server, auth_sign, &buf), "auth server signature verification fail");
 
             let user_comment_count_key = (who.clone(), app_id.clone(), knowledge_id.clone());
+
+            // store comment
+            <KnowledgeCommentDataByIdHash<T>>::insert((app_id.clone(), comment_id.clone()), KnowledgeCommentData {
+                app_id: app_id.clone(),
+                knowledge_id: knowledge_id.clone(),
+                comment_id: comment_id.clone(),
+                last_comment_id,
+                comment_hash,
+                comment_fee: cost,
+                knowledge_profit: knowledge_owner_profit,
+                owner: who.clone(),
+            });
+
             <KnowledgeCommentUserCountHash<T>>::mutate(user_comment_count_key.clone(), |cc| {
                 *cc += 1;
             });
