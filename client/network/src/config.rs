@@ -5,7 +5,7 @@
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or 
+// the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
 // This program is distributed in the hope that it will be useful,
@@ -15,6 +15,7 @@
 
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
+
 //! Configuration of the networking layer.
 //!
 //! The [`Params`] struct is the struct that must be passed in order to initialize the networking.
@@ -271,8 +272,21 @@ pub fn parse_str_addr(addr_str: &str) -> Result<(PeerId, Multiaddr), ParseErr> {
 /// Splits a Multiaddress into a Multiaddress and PeerId.
 pub fn parse_addr(mut addr: Multiaddr)-> Result<(PeerId, Multiaddr), ParseErr> {
 	let who = match addr.pop() {
-		Some(multiaddr::Protocol::P2p(key)) => PeerId::from_multihash(key)
-			.map_err(|_| ParseErr::InvalidPeerId)?,
+		Some(multiaddr::Protocol::P2p(key)) => {
+			if !matches!(key.algorithm(), multiaddr::multihash::Code::Identity) {
+				// (note: this is the "person bowing" emoji)
+				log::warn!(
+					"🙇 You are using the peer ID {}. This peer ID uses a legacy, deprecated \
+					representation that will no longer be supported in the future. \
+					Please refresh it by performing a RPC query to the appropriate node, \
+					by looking at its logs, or by using `subkey inspect-node-key` on its \
+					private key.",
+					bs58::encode(key.as_bytes()).into_string()
+				);
+			}
+
+			PeerId::from_multihash(key).map_err(|_| ParseErr::InvalidPeerId)?
+		},
 		_ => return Err(ParseErr::PeerIdMissing),
 	};
 

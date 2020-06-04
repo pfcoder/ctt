@@ -5,7 +5,7 @@
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or 
+// the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
 // This program is distributed in the hope that it will be useful,
@@ -284,26 +284,6 @@ pub trait ExHashT: std::hash::Hash + Eq + std::fmt::Debug + Clone + Send + Sync 
 
 impl<T> ExHashT for T where T: std::hash::Hash + Eq + std::fmt::Debug + Clone + Send + Sync + 'static
 {}
-
-/// A cloneable handle for reporting cost/benefits of peers.
-#[derive(Clone)]
-pub struct ReportHandle {
-	inner: sc_peerset::PeersetHandle, // wraps it so we don't have to worry about breaking API.
-}
-
-impl From<sc_peerset::PeersetHandle> for ReportHandle {
-	fn from(peerset_handle: sc_peerset::PeersetHandle) -> Self {
-		ReportHandle { inner: peerset_handle }
-	}
-}
-
-impl ReportHandle {
-	/// Report a given peer as either beneficial (+) or costly (-) according to the
-	/// given scalar.
-	pub fn report_peer(&self, who: PeerId, cost_benefit: ReputationChange) {
-		self.inner.report_peer(who, cost_benefit);
-	}
-}
 
 /// Trait for providing information about the local network state
 pub trait NetworkStateInfo {
